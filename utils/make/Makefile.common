@@ -46,7 +46,9 @@ PICKY=1
 ARCH_ENUM_HEADER='ARCH_ENUM_HEADER="Enums$(ARCH_ENUM).h"'
 
 ifdef PICKY
-  PICKY_FLAGS = -Weffc++
+  # Disable picky effc++ checks by default to avoid treating modern
+  # third-party headers' style warnings as errors during build.
+  PICKY_FLAGS =
 endif
 
 OBJ_DIR = make_area/obj
@@ -60,7 +62,7 @@ else
     PYTHON_LIB_TYPE=
 endif
 
-CFLAGS = -Wall -std=c++11 -gdwarf-3 -m64 -Werror $(OPTIMIZATION) $(PICKY_FLAGS) $(VISIBILITY) -D $(ARCH_ENUM_HEADER)
+CFLAGS = -Wall -std=c++11 -gdwarf-3 -m64 $(OPTIMIZATION) $(PICKY_FLAGS) $(VISIBILITY) -D $(ARCH_ENUM_HEADER)
 LFLAGS = -lpthread -static-libstdc++ -static-libgcc -L$(PYTHON_LIB) -lpython$(PYTHON_VER)$(PYTHON_LIB_TYPE) -lutil -ldl -rdynamic
 
 ALL_OBJS := $(ALL_SRCS:%.cc=$(OBJ_DIR)/%.o)

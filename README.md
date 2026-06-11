@@ -191,3 +191,93 @@ https://mattermost.openhwgroup.org/all-users/channels/vtg-force-riscv#
 
 Stage2 development of FORCE-RISCV will be tracked in FORCE-RISCV VTG mattermost.
 Welcome to join.
+
+## Local modern-toolchain notes (added by helper)
+
+If you are building FORCE-RISCV on a modern Linux machine (for example g++ 11/13 and Python 3.10+), a few local compatibility fixes may be necessary. The following notes record the minimal changes performed to get a working build in such an environment and the exact commands used to build and run the smoke test.
+
+- What was changed (minimal, purpose-built fixes):
+    - Removed `-Werror` / `-Weffc++` in `utils/make/Makefile.common` to avoid third-party warnings aborting the build under modern g++.
+    - Added missing standard headers in a few project headers so modern compilers find `std::string` and fixed integer typedefs (`<string>`, `<cstdint>`, `<vector>` added where needed).
+    - Adjusted the small RNG adapter in `base/inc/Random.h` so `RandomURBG32::min()`/`max()` meet the `uniform_random_bit_generator` requirements.
+    - Installed a recent `pybind11` into a local Python virtualenv and copied the include tree into `3rd_party/inc/pybind11` so bindings compile against the system Python (3.12) headers without modifying system packages.
+    - Added `local.sh` helper to export `PYTHONPATH` and detect Python include/lib paths used by the Makefiles.
+
+- How to build & run (exact commands used):
+
+    1. From project root, source the helper environment (this sets `PYTHONPATH`):
+
+```bash
+. ./local.sh
+```
+
+    2. Build the project (parallel build):
+
+```bash
+make -j$(nproc)
+```
+
+    3. Run the smoke test to generate an ELF and assembly listing:
+
+```bash
+. ./setenv.bash   # optional if you prefer original helper
+./bin/friscv -t utils/smoke/test_force.py 2>&1 | tee run_smoke.log
+```
+
+    4. Outputs (example):
+
+        - `test_force.Default.S` — generated assembly listing
+        - `test_force.Default.ELF` — generated ELF
+
+- Notes and rollback policy:
+    - These edits are minimal compatibility patches intended for local development on modern toolchains. If you prefer a pristine upstream build, you can instead run the project inside an isolated older toolchain (Docker, pyenv + virtualenv, or a VM). See the `create_github_repo.sh` helper for instructions to prepare a branch and push changes.
+
+## Creating a GitHub repository and pushing this project
+
+I can push this repository to your GitHub account if you have the GitHub CLI (`gh`) installed and authenticated. If `gh` is not available the script below gives the exact git commands you can run.
+
+I added a helper script `create_github_repo.sh` in the project root. Usage examples:
+
+```bash
+# create repo interactively (requires gh):
+. ./create_github_repo.sh --name force-riscv-local --public
+
+# or prepare a repo manually (script will print instructions):
+. ./create_github_repo.sh --dry-run --name force-riscv-local
+```
+
+Please review the code changes before pushing them upstream. If you want, I can create a branch and stage a patch set instead of pushing to your account directly.
+
+### Python 虚拟环境与 pybind11（详尽步骤）
+
+在某些系统上，为了避免修改系统 Python 或全局包，我们推荐在项目目录建立一个虚拟环境并在其中安装 `pybind11`，然后将其头文件复制到项目的 `3rd_party/inc/pybind11` 中以供本地构建使用。下面是可复制执行的命令：
+
+```bash
+# 在项目根创建并激活虚拟环境
+python3 -m venv .venv
+. .venv/bin/activate
+
+# 可选：升级 pip
+pip install --upgrade pip
+
+# 安装 pybind11
+pip install pybind11
+
+# 将 pybind11 的头文件复制到仓库的 3rd_party/inc/pybind11
+python - <<'PY'
+import pybind11, os, shutil
+src = pybind11.get_include()
+dst = os.path.join('3rd_party', 'inc', 'pybind11')
+print('copy from', src, 'to', dst)
+os.makedirs(dst, exist_ok=True)
+shutil.copytree(os.path.join(src, 'pybind11'), dst, dirs_exist_ok=True)
+PY
+
+# 现在退出虚拟环境（若需要）：
+deactivate
+```
+
+说明：
+- 如果机器上已有兼容版本的 `pybind11`，可以跳过复制步骤并直接在 Makefile 中调整 include 路径指向虚拟环境的 include 目录。
+- 复制头文件到仓库会把绑定头隔离到项目层面，避免系统 Python 版本差异导致编译失败。
+

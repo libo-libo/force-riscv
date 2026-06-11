@@ -16,6 +16,10 @@
 #ifndef Force_Defines_H
 #define Force_Defines_H
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 /*!
   \namespace Force
   \brief Application scope name space

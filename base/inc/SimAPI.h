@@ -25,6 +25,7 @@
 
 #include "Defines.h"
 #include "VectorElementUpdates.h"
+#include <cstdint>
 
 struct SimException;
 
